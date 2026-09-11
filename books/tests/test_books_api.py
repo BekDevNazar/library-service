@@ -11,7 +11,7 @@ url = reverse("books:book-list")
 class BookTest(APITestCase):
     def setUp(self):
         self.admin = get_user_model().objects.create_user(
-            username="admin",
+            email="admin@test.com",
             password="test123",
             is_staff=True,
         )
@@ -80,4 +80,4 @@ class BookTest(APITestCase):
             "daily_fee": "3.00",
         }
         response = self.client.post(url, data)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
