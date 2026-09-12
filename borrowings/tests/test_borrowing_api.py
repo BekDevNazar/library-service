@@ -14,6 +14,13 @@ from borrowings.models import Borrowing
 BORROWING_LIST_URL = reverse("borrowings:borrowing-list")
 
 
+def return_borrowing_url(borrowing_id):
+    return reverse(
+        "borrowings:borrowing-book-return",
+        args=[borrowing_id],
+    )
+
+
 class BorrowingApiTests(APITestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(
@@ -227,4 +234,69 @@ class BorrowingApiTests(APITestCase):
         self.assertEqual(
             response.data[0]["id"],
             self.other_borrowing.id,
+        )
+
+    def test_return_borrowing(self):
+        initial_inventory = self.book.inventory
+
+        url = return_borrowing_url(self.borrowing.id)
+        response = self.client.post(url)
+
+        self.borrowing.refresh_from_db()
+        self.book.refresh_from_db()
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+        )
+        self.assertEqual(
+            self.borrowing.actual_return_date,
+            timezone.localdate(),
+        )
+        self.assertEqual(
+            self.book.inventory,
+            initial_inventory + 1,
+        )
+
+    def test_cannot_return_borrowing_twice(self):
+        initial_inventory = self.book.inventory
+        url = return_borrowing_url(self.borrowing.id)
+
+        first_response = self.client.post(url)
+        second_response = self.client.post(url)
+
+        self.book.refresh_from_db()
+
+        self.assertEqual(
+            first_response.status_code,
+            status.HTTP_200_OK,
+        )
+        self.assertEqual(
+            second_response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+        self.assertEqual(
+            self.book.inventory,
+            initial_inventory + 1,
+        )
+
+    def test_user_cannot_return_other_user_borrowing(self):
+        initial_inventory = self.book.inventory
+
+        url = return_borrowing_url(self.other_borrowing.id)
+        response = self.client.post(url)
+
+        self.other_borrowing.refresh_from_db()
+        self.book.refresh_from_db()
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+        self.assertIsNone(
+            self.other_borrowing.actual_return_date,
+        )
+        self.assertEqual(
+            self.book.inventory,
+            initial_inventory,
         )
