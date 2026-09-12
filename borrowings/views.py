@@ -1,7 +1,11 @@
-from django.contrib.auth.models import AbstractUser
-from rest_framework import mixins, viewsets
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from django.db import transaction
+from rest_framework.decorators import action
+from rest_framework import mixins, viewsets, status
+from rest_framework.permissions import IsAuthenticated
+from django.utils import timezone
+from rest_framework.response import Response
 
+from books.models import Book
 from borrowings.models import Borrowing
 from borrowings.serializers import (
     BorrowingCreateSerializer,
@@ -42,3 +46,43 @@ class BorrowingViewSet(
             queryset = queryset.filter(user_id=user_id)
 
         return queryset
+
+    @action(
+        methods=["POST"],
+        detail=True,
+        url_path="return",
+    )
+    def book_return(self, request, pk=None):
+        borrow = self.get_object()
+
+        with transaction.atomic():
+            borrow = (
+                Borrowing.objects
+                .select_for_update()
+                .get(pk=borrow.pk)
+            )
+
+            if borrow.actual_return_date is not None:
+                return Response(
+                    {"detail": "This book has already been returned."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            book = (
+                Book.objects
+                .select_for_update()
+                .get(pk=borrow.book_id)
+            )
+
+            book.inventory += 1
+            book.save(update_fields=["inventory"])
+
+            borrow.actual_return_date = timezone.localdate()
+            borrow.save(update_fields=["actual_return_date"])
+
+            serializer = BorrowingReadSerializer(borrow)
+
+            return Response(
+                serializer.data,
+                status=status.HTTP_200_OK,
+            )
