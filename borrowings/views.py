@@ -1,4 +1,6 @@
 from django.db import transaction
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.decorators import action
 from rest_framework import mixins, viewsets, status
 from rest_framework.permissions import IsAuthenticated
@@ -20,6 +22,25 @@ class BorrowingViewSet(
     viewsets.GenericViewSet,
 ):
     permission_classes = (IsAuthenticated,)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="is_active",
+                type=OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+                description="Filter borrowings by active status.",
+            ),
+            OpenApiParameter(
+                name="user_id",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Filter borrowings by user ID. Available for admins.",
+            ),
+        ]
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -47,6 +68,11 @@ class BorrowingViewSet(
 
         return queryset
 
+    @extend_schema(
+        request=None,
+        responses=BorrowingReadSerializer,
+        description="Return a borrowed book to the library.",
+    )
     @action(
         methods=["POST"],
         detail=True,
