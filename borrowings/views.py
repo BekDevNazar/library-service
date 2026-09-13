@@ -22,6 +22,7 @@ class BorrowingViewSet(
     viewsets.GenericViewSet,
 ):
     permission_classes = (IsAuthenticated,)
+    queryset = Borrowing.objects.all()
 
     @extend_schema(
         parameters=[
@@ -55,16 +56,17 @@ class BorrowingViewSet(
         if not user.is_staff:
             queryset = queryset.filter(user=user)
 
-        is_active = self.request.query_params.get("is_active", None)
+        if self.action == "list":
+            is_active = self.request.query_params.get("is_active", None)
 
-        if is_active == "true":
-            queryset = queryset.filter(actual_return_date__isnull=True)
-        elif is_active == "false":
-            queryset = queryset.filter(actual_return_date__isnull=False)
+            if is_active == "true":
+                queryset = queryset.filter(actual_return_date__isnull=True)
+            elif is_active == "false":
+                queryset = queryset.filter(actual_return_date__isnull=False)
 
-        user_id = self.request.query_params.get("user_id", None)
-        if user_id and user.is_staff:
-            queryset = queryset.filter(user_id=user_id)
+            user_id = self.request.query_params.get("user_id", None)
+            if user_id and user.is_staff:
+                queryset = queryset.filter(user_id=user_id)
 
         return queryset
 

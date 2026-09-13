@@ -8,6 +8,7 @@ from books.models import Book
 
 url = reverse("books:book-list")
 
+
 class BookTest(APITestCase):
     def setUp(self):
         self.admin = get_user_model().objects.create_user(
